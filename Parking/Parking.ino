@@ -1,10 +1,5 @@
 
 //*********************************************************************************
-//* PATTERNS BUILD WITH
-//* https://www.riyas.org/2013/12/online-led-matrix-font-generator-with.html
-//*********************************************************************************
-
-//*********************************************************************************
 //* LED LOGIC FROM HERE
 //* https://create.arduino.cc/projecthub/SAnwandter1/programming-8x8-led-matrix-23475a
 //*********************************************************************************
@@ -22,222 +17,241 @@
 //* ---------------------------------------------------------------- 
 //*********************************************************************************
 
-#define	LimitNearCM		40
-#define LimitFarCM		50
+//*********************************************************************************
+//* PATTERNS BUILT WITH
+//* https://www.riyas.org/2013/12/online-led-matrix-font-generator-with.html
+//*********************************************************************************
 
-//* PINS FOR RANGING
+// TUNABLES
 
-#define echoPin A4 // attach pin D2 Arduino to pin Echo of HC-SR04
-#define trigPin A5 //attach pin D3 Arduino to pin Trig of HC-SR04
+#define	LIMIT_NEAR_CM	40
+#define LIMIT_FAR_CM	50
+
+// PINS FOR RANGING
+
+#define RANGE_TRIGGER_PIN	A5 // ATTACH TO PIN TRIG OF HC-SR04
+#define RANGE_ECHO_PIN		A4 // ATTACH TO PIN ECHO OF HC-SR04
+
+// PINS FOR LED MATRIX
+
+#define LED_ROW_1 2
+#define LED_ROW_2 3
+#define LED_ROW_3 4
+#define LED_ROW_4 5
+#define LED_ROW_5 6
+#define LED_ROW_6 7
+#define LED_ROW_7 8
+#define LED_ROW_8 9
+
+#define LED_COL_1 10
+#define LED_COL_2 11
+#define LED_COL_3 12
+#define LED_COL_4 13
+#define LED_COL_5 A0
+#define LED_COL_6 A1
+#define LED_COL_7 A2  
+#define LED_COL_8 A3
+
+const byte	mayRowPins[] = { LED_ROW_1, LED_ROW_2, LED_ROW_3, LED_ROW_4, LED_ROW_5, LED_ROW_6, LED_ROW_7, LED_ROW_8 };
+const byte	mayColPins[] = { LED_COL_1, LED_COL_2, LED_COL_3, LED_COL_4, LED_COL_5, LED_COL_6, LED_COL_7, LED_COL_8 };
+
+// LOTS OF SYMBOLS 
+
+const byte OFF[] = {B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000};
+const byte ALL[] = {B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111111};
+const byte EX[]  = {B00000000,B00010000,B00010000,B00010000,B00010000,B00000000,B00010000,B00000000};
+const byte A[]   = {B00000000,B00111100,B01100110,B01100110,B01111110,B01100110,B01100110,B01100110};
+const byte B[]   = {B01111000,B01001000,B01001000,B01110000,B01001000,B01000100,B01000100,B01111100};
+const byte C[]   = {B00000000,B00011110,B00100000,B01000000,B01000000,B01000000,B00100000,B00011110};
+const byte D[]   = {B00000000,B00111000,B00100100,B00100010,B00100010,B00100100,B00111000,B00000000};
+const byte E[]   = {B00000000,B00111100,B00100000,B00111000,B00100000,B00100000,B00111100,B00000000};
+const byte F[]   = {B00000000,B00111100,B00100000,B00111000,B00100000,B00100000,B00100000,B00000000};
+const byte G[]   = {B00000000,B00111110,B00100000,B00100000,B00101110,B00100010,B00111110,B00000000};
+const byte H[]   = {B00000000,B00100100,B00100100,B00111100,B00100100,B00100100,B00100100,B00000000};
+const byte I[]   = {B00000000,B00111000,B00010000,B00010000,B00010000,B00010000,B00111000,B00000000};
+const byte J[]   = {B00000000,B00011100,B00001000,B00001000,B00001000,B00101000,B00111000,B00000000};
+const byte K[]   = {B00000000,B00100100,B00101000,B00110000,B00101000,B00100100,B00100100,B00000000};
+const byte L[]   = {B00000000,B00100000,B00100000,B00100000,B00100000,B00100000,B00111100,B00000000};
+const byte M[]   = {B00000000,B00000000,B01000100,B10101010,B10010010,B10000010,B10000010,B00000000};
+const byte N[]   = {B00000000,B00100010,B00110010,B00101010,B00100110,B00100010,B00000000,B00000000};
+const byte O[]   = {B00000000,B00111100,B01000010,B01000010,B01000010,B01000010,B00111100,B00000000};
+const byte P[]   = {B00000000,B00111000,B00100100,B00100100,B00111000,B00100000,B00100000,B00000000};
+const byte Q[]   = {B00000000,B00111100,B01000010,B01000010,B01000010,B01000110,B00111110,B00000001};
+const byte R[]   = {B00000000,B00111000,B00100100,B00100100,B00111000,B00100100,B00100100,B00000000};
+const byte S[]   = {B00000000,B00111100,B00100000,B00111100,B00000100,B00000100,B00111100,B00000000};
+const byte T[]   = {B00000000,B01111100,B00010000,B00010000,B00010000,B00010000,B00010000,B00000000};
+const byte U[]   = {B00000000,B01000010,B01000010,B01000010,B01000010,B00100100,B00011000,B00000000};
+const byte V[]   = {B00000000,B00100010,B00100010,B00100010,B00010100,B00010100,B00001000,B00000000};
+const byte W[]   = {B00000000,B10000010,B10010010,B01010100,B01010100,B00101000,B00000000,B00000000};
+const byte X[]   = {B00000000,B01000010,B00100100,B00011000,B00011000,B00100100,B01000010,B00000000};
+const byte Y[]   = {B00000000,B01000100,B00101000,B00010000,B00010000,B00010000,B00010000,B00000000};
+const byte Z[]   = {B00000000,B00111100,B00000100,B00001000,B00010000,B00100000,B00111100,B00000000};
+
+// UP CARETS FOR SCROLLING ILLUSION
+                   
+const byte UP_3_1[] = {B10011001, B00100100, B01000010, B10011001, B00100100, B01000010, B10011001, B00100100};
+const byte UP_3_2[] = {B00100100, B01000010, B10011001, B00100100, B01000010, B10011001, B00100100, B01000010};
+const byte UP_3_3[] = {B01000010, B10011001, B00100100, B01000010, B10011001, B00100100, B01000010, B10011001};
+
+const byte UP_4_1[] = {B00011000, B00100100, B01000010, B10000001, B00011000, B00100100, B01000010, B10000001};
+const byte UP_4_2[] = {B00100100, B01000010, B10000001, B00011000, B00100100, B01000010, B10000001, B00011000};
+const byte UP_4_3[] = {B01000010, B10000001, B00011000, B00100100, B01000010, B10000001, B00011000, B00100100};
+const byte UP_4_4[] = {B10000001, B00011000, B00100100, B01000010, B10000001, B00011000, B00100100, B01000010};
+
+// UP, DOWN AND STOP
+
+const byte UP_ARROW[]   = {B00011000, B00111100, B01111110, B11011011, B10011001, B00011000, B00011000, B00011000};
+const byte DOWN_ARROW[] = {B00011000, B00011000, B00011000, B10011001, B11011011, B01111110, B00111100, B00011000};
+const byte STOP[]       = {B00000000, B00000000, B00000000, B11111111, B11111111, B00000000, B00000000, B00000000};
+
+const byte SMILE[]	    = {B01100110, B11100111, B11100111, B00000000, B10000001, B11000011, B01111110, B00111100};
 
 // GLOBAL VARIABLES
 
-long duration; // variable for the duration of sound wave travel
-int distance; // variable for the distance measurement
- 
-byte * Symbol; 
+const byte *	mpActiveSymbol;					// POINTS TO ONE OF THE BYTE ARRAYS WITH SYMBOLS 
+long			mlTicks;
 
-//update from SAnwandter
-
-#define ROW_1 2
-#define ROW_2 3
-#define ROW_3 4
-#define ROW_4 5
-#define ROW_5 6
-#define ROW_6 7
-#define ROW_7 8
-#define ROW_8 9
-
-#define COL_1 10
-#define COL_2 11
-#define COL_3 12
-#define COL_4 13
-#define COL_5 A0
-#define COL_6 A1
-#define COL_7 A2  
-#define COL_8 A3
-
-const byte rows[] = {
-    ROW_1, ROW_2, ROW_3, ROW_4, ROW_5, ROW_6, ROW_7, ROW_8
-};
-const byte col[] = {
-  COL_1,COL_2, COL_3, COL_4, COL_5, COL_6, COL_7, COL_8
-};
-
-// The display buffer
-// It's prefilled with a smiling face (1 = ON, 0 = OFF)
-byte OFF[] = {B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000};
-byte ALL[] = {B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111111};
-byte EX[] = {B00000000,B00010000,B00010000,B00010000,B00010000,B00000000,B00010000,B00000000};
-byte A[] = {  B00000000,B00111100,B01100110,B01100110,B01111110,B01100110,B01100110,B01100110};
-byte B[] = {B01111000,B01001000,B01001000,B01110000,B01001000,B01000100,B01000100,B01111100};
-byte C[] = {B00000000,B00011110,B00100000,B01000000,B01000000,B01000000,B00100000,B00011110};
-byte D[] = {B00000000,B00111000,B00100100,B00100010,B00100010,B00100100,B00111000,B00000000};
-byte E[] = {B00000000,B00111100,B00100000,B00111000,B00100000,B00100000,B00111100,B00000000};
-byte F[] = {B00000000,B00111100,B00100000,B00111000,B00100000,B00100000,B00100000,B00000000};
-byte G[] = {B00000000,B00111110,B00100000,B00100000,B00101110,B00100010,B00111110,B00000000};
-byte H[] = {B00000000,B00100100,B00100100,B00111100,B00100100,B00100100,B00100100,B00000000};
-byte I[] = {B00000000,B00111000,B00010000,B00010000,B00010000,B00010000,B00111000,B00000000};
-byte J[] = {B00000000,B00011100,B00001000,B00001000,B00001000,B00101000,B00111000,B00000000};
-byte K[] = {B00000000,B00100100,B00101000,B00110000,B00101000,B00100100,B00100100,B00000000};
-byte L[] = {B00000000,B00100000,B00100000,B00100000,B00100000,B00100000,B00111100,B00000000};
-byte M[] = {B00000000,B00000000,B01000100,B10101010,B10010010,B10000010,B10000010,B00000000};
-byte N[] = {B00000000,B00100010,B00110010,B00101010,B00100110,B00100010,B00000000,B00000000};
-byte O[] = {B00000000,B00111100,B01000010,B01000010,B01000010,B01000010,B00111100,B00000000};
-byte P[] = {B00000000,B00111000,B00100100,B00100100,B00111000,B00100000,B00100000,B00000000};
-byte Q[] = {B00000000,B00111100,B01000010,B01000010,B01000010,B01000110,B00111110,B00000001};
-byte R[] = {B00000000,B00111000,B00100100,B00100100,B00111000,B00100100,B00100100,B00000000};
-byte S[] = {B00000000,B00111100,B00100000,B00111100,B00000100,B00000100,B00111100,B00000000};
-byte T[] = {B00000000,B01111100,B00010000,B00010000,B00010000,B00010000,B00010000,B00000000};
-byte U[] = {B00000000,B01000010,B01000010,B01000010,B01000010,B00100100,B00011000,B00000000};
-byte V[] = {B00000000,B00100010,B00100010,B00100010,B00010100,B00010100,B00001000,B00000000};
-byte W[] = {B00000000,B10000010,B10010010,B01010100,B01010100,B00101000,B00000000,B00000000};
-byte X[] = {B00000000,B01000010,B00100100,B00011000,B00011000,B00100100,B01000010,B00000000};
-byte Y[] = {B00000000,B01000100,B00101000,B00010000,B00010000,B00010000,B00010000,B00000000};
-byte Z[] = {B00000000,B00111100,B00000100,B00001000,B00010000,B00100000,B00111100,B00000000};
-
-//byte UP1[] = {B10011001, B00100100, B01000010, B10011001, B00100100, B01000010, B10011001, B00100100};
-//byte UP2[] = {B00100100, B01000010, B10011001, B00100100, B01000010, B10011001, B00100100, B01000010};
-//byte UP3[] = {B01000010, B10011001, B00100100, B01000010, B10011001, B00100100, B01000010, B10011001};
-
-byte UP1[] = {B00011000, B00100100, B01000010, B10000001, B00011000, B00100100, B01000010, B10000001};
-byte UP2[] = {B00100100, B01000010, B10000001, B00011000, B00100100, B01000010, B10000001, B00011000};
-byte UP3[] = {B01000010, B10000001, B00011000, B00100100, B01000010, B10000001, B00011000, B00100100};
-byte UP4[] = {B10000001, B00011000, B00100100, B01000010, B10000001, B00011000, B00100100, B01000010};
-
-byte UP_ARROW[]   = {B00011000, B00111100, B01111110, B11011011, B10011001, B00011000, B00011000, B00011000};
-byte DOWN_ARROW[] = {B00011000, B00011000, B00011000, B10011001, B11011011, B01111110, B00111100, B00011000};
-byte STOP[]       = {B00000000, B00000000, B00000000, B11111111, B11111111, B00000000, B00000000, B00000000};
-
-float timeCount = 0;
+//*********************************************************************************
+//* ONE TIME INIT
+//*********************************************************************************
 
 void setup() 
 {
-    // Open serial port
+    // OPEN SERIAL PORT
 
-    Serial.begin(115200);
+    Serial.begin (115200);
     
-    // Set all used pins to OUTPUT
-    // This is very important! If the pins are set to input
-    // the display will be very dim.
+    // SET ALL USED LED PINS TO OUTPUT
+    // THIS IS VERY IMPORTANT! IF THE PINS ARE SET TO INPUT
+    // THE DISPLAY WILL BE VERY DIM.
 
-    for (byte i = 2; i <= 13; i++) pinMode(i, OUTPUT);
-    pinMode(A0, OUTPUT);
-	pinMode(A1, OUTPUT);
-	pinMode(A2, OUTPUT);
-	pinMode(A3, OUTPUT);
-	
-  	pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
-  	pinMode(echoPin, INPUT); // Sets the echoPin as an INPUT	
+    for (byte i = 2; i <= 13; i++) pinMode (i, OUTPUT);
+    pinMode (A0, OUTPUT);
+	pinMode (A1, OUTPUT);
+	pinMode (A2, OUTPUT);
+	pinMode (A3, OUTPUT);
+
+	// SET RANGING PINS
+		
+  	pinMode (RANGE_TRIGGER_PIN, OUTPUT);	// TRIGGER IS AN OUTPUT
+  	pinMode (RANGE_ECHO_PIN, INPUT);		// ECHO IS AN INPUT
   	
-  	Symbol = OFF;
+  	// INIT GLOBAL VARIABLES
+  	
+  	mpActiveSymbol = OFF;
+  	mlTicks	 	   = 0;
 }
+
+//*********************************************************************************
+//* CONTINUOUS LOOP
+//*********************************************************************************
 
 void loop() 
 {
-
-    // This could be rewritten to not use a delay, which would make it appear brighter
-
-    timeCount += 1;
+	// DISPATCH WHAT TO DO
+	
+    mlTicks += 1;
 
 	// SHOW SYMBOL
 	
-    if(timeCount <  25) {
-        drawScreen (Symbol);
+    if (mlTicks < 25) {
+        DrawSymbol (mpActiveSymbol);
         return;
     }
     
-    // OFF
+    // DISPLAY OFF
     
-    if (timeCount <  50) {
-        drawScreen (OFF);
+    if (mlTicks < 50) {
+        DrawSymbol (OFF);
         return;
     } 
     
-    // back to the start
+    // BACK TO THE START
     
-    timeCount = 0;
+    mlTicks = 0;
 
     // MEASURE DISTANCE
+
+	long	lRangeDurationMicroSeconds;	// VARIABLE FOR THE DURATION OF SOUND WAVE TRAVEL
+	int		nRangeDistanceCM;			// VARIABLE FOR THE DISTANCE MEASUREMENT
     
-	// Clears the trigPin condition
+	// CLEARS THE RANGE_TRIGGER_PIN CONDITION
 
-	digitalWrite (trigPin, LOW);
-	delayMicroseconds(2);
+	digitalWrite (RANGE_TRIGGER_PIN, LOW);
+	delayMicroseconds (2);
 
-	// Sets the trigPin HIGH (ACTIVE) for 10 microseconds
+	// SETS THE RANGE_TRIGGER_PIN HIGH (ACTIVE) FOR 10 MICROSECONDS
 
-	digitalWrite(trigPin, HIGH);
-	delayMicroseconds(10);
-	digitalWrite(trigPin, LOW);
+	digitalWrite (RANGE_TRIGGER_PIN, HIGH);
+	delayMicroseconds (10);
+	digitalWrite (RANGE_TRIGGER_PIN, LOW);
 
-	// Reads the echoPin, returns the sound wave travel time in microseconds
+	// READS THE RANGE_ECHO_PIN, RETURNS THE SOUND WAVE TRAVEL TIME IN MICROSECONDS
 
-	duration = pulseIn (echoPin, HIGH, 15000);
+	lRangeDurationMicroSeconds = pulseIn (RANGE_ECHO_PIN, HIGH, 15000);
 
-	// Calculating the distance
+	// CALCULATING THE DISTANCE
 
-	distance = float (duration) * 0.034 / 2.0; // Speed of sound wave divided by 2 (go and back)
+	nRangeDistanceCM = float (lRangeDurationMicroSeconds) * 0.034 / 2.0; // Speed of sound wave divided by 2 (go and back)
 
-	// Displays the distance on the Serial Monitor
+	// DISPLAYS THE DISTANCE ON THE SERIAL MONITOR
 
-	Serial.print("Distance: ");
-	Serial.print(distance);
-	Serial.println(" cm");
+	Serial.print ("Distance: ");
+	Serial.print (nRangeDistanceCM);
+	Serial.println (" cm");
 
-	
-	if (distance == 0) {
-		Symbol = OFF;
-		return;
-	}	
-	
-	if (distance < LimitNearCM) {
-		Symbol = DOWN_ARROW;
-		return;
-	}
-	
-	if (distance > LimitFarCM) {
-		Symbol = UP_ARROW;
-		return;
-	}
-	
-	Symbol = STOP;
-}
-
-void  drawScreen(byte buffer2[])
-{ 
-	// Turn on each row in series
-
-	for (byte i = 0; i < 8; i++)        // count next row
-	{
-		digitalWrite(rows[i], HIGH);    //initiate whole row
-		for (byte a = 0; a < 8; a++)    // count next row
-		{
-			// if You set (~buffer2[i] >> a) then You will have positive
+	// NOTHING DETECTED AT ALL ?
 		
-			digitalWrite(col[a], ((~ buffer2[i]) >> a) & 0x01); // initiate whole column
+	if (nRangeDistanceCM == 0) {
+		mpActiveSymbol = OFF;
+		return;
+	}
+	
+	// TOO NEAR ?	
+	
+	if (nRangeDistanceCM < LIMIT_NEAR_CM) {
+		mpActiveSymbol = DOWN_ARROW;
+		return;
+	}
+	
+	// TOO FAR AWAY ?
+	
+	if (nRangeDistanceCM > LIMIT_FAR_CM) {
+		mpActiveSymbol = UP_ARROW;
+		return;
+	}               
+	
+	// JUST RIGHT !
+	
+	mpActiveSymbol = SMILE;
+}
+
+//*********************************************************************************
+//* DRAW ONE SYMBOL
+//*********************************************************************************
+
+void DrawSymbol (const byte aySymbolBits[])
+{ 
+	// LOOP OVER EACH ROW
+
+	for (byte yRow = 0; yRow < 8; yRow++) {
+		digitalWrite (mayRowPins[yRow], HIGH);		// ENABLE ROW
+		
+		// IF YOU REMOVE THE ~ BEFORE aySymbolBits YOU WILL HAVE AN INVERSE DISPLAY
+
+		byte	ySymbolBits = ~ aySymbolBits[yRow];
+		
+		// LOOP OVER EACH COLUMN
+
+		for (byte yCol = 0; yCol < 8; yCol++) {
+			digitalWrite (mayColPins[yCol], (ySymbolBits >> yCol) & 0x01);	// ENABLE COLUMN
 			
-			delayMicroseconds(100);       // uncoment deley for diferent speed of display
-			//delayMicroseconds(1000);
-			//delay(10);
-			//delay(100);
+			// NOW ONE LED AT THE ROW/COL POS IS ILLUMINATED. WAIT A MOMENT, THEN SWITCH THE COLUMN OFF
 			
-			digitalWrite(col[a], 1);      // reset whole column
-		}
-		digitalWrite(rows[i], LOW);     // reset whole row
-		// otherwise last row will intersect with next row
+			delayMicroseconds (100);       
+			digitalWrite (mayColPins[yCol], HIGH);  // DISABLE COLUMN
+		}                                    
+		
+		digitalWrite (mayRowPins[yRow], LOW);  		// DISABLE ROW
 	}
 }
-// 
-  /* this is siplest resemplation how for loop is working with each row.
-    digitalWrite(COL_1, (~b >> 0) & 0x01); // Get the 1st bit: 10000000
-    digitalWrite(COL_2, (~b >> 1) & 0x01); // Get the 2nd bit: 01000000
-    digitalWrite(COL_3, (~b >> 2) & 0x01); // Get the 3rd bit: 00100000
-    digitalWrite(COL_4, (~b >> 3) & 0x01); // Get the 4th bit: 00010000
-    digitalWrite(COL_5, (~b >> 4) & 0x01); // Get the 5th bit: 00001000
-    digitalWrite(COL_6, (~b >> 5) & 0x01); // Get the 6th bit: 00000100
-    digitalWrite(COL_7, (~b >> 6) & 0x01); // Get the 7th bit: 00000010
-    digitalWrite(COL_8, (~b >> 7) & 0x01); // Get the 8th bit: 00000001
-}*/
-
-
