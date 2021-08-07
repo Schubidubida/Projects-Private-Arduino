@@ -24,8 +24,13 @@
 
 // TUNABLES
 
-#define	LIMIT_NEAR_CM	40
-#define LIMIT_FAR_CM	50
+#define	LIMIT_NEAR_CM	38.0
+#define LIMIT_FAR_CM	52.0               
+
+#define DISTANCE_AVERAGE	8
+
+#define DISTANCE_IDLE_EPSILON	2.0
+#define DISTANCE_IDLE_COUNT		50000U
 
 // PINS FOR RANGING
 
@@ -51,6 +56,14 @@
 #define LED_COL_6 A1
 #define LED_COL_7 A2  
 #define LED_COL_8 A3
+
+// DATA TYPES
+
+typedef enum {
+	S_IDLE,			// NOTHING TO DO, READ RANGE ONCE A SECOND, WAKEUP ON VALID 
+	S_SYMBOL,		// SHOW SYMBOL
+	S_RANGING,		// DO RANGING WITH MAXIMUM SPEED, SHOW NO SYMBOL
+} EState;
 
 const byte	mayRowPins[] = { LED_ROW_1, LED_ROW_2, LED_ROW_3, LED_ROW_4, LED_ROW_5, LED_ROW_6, LED_ROW_7, LED_ROW_8 };
 const byte	mayColPins[] = { LED_COL_1, LED_COL_2, LED_COL_3, LED_COL_4, LED_COL_5, LED_COL_6, LED_COL_7, LED_COL_8 };
@@ -108,8 +121,11 @@ const byte SMILE[]	    = {B01100110, B11100111, B11100111, B00000000, B10000001,
 
 // GLOBAL VARIABLES
 
-const byte *	mpActiveSymbol;					// POINTS TO ONE OF THE BYTE ARRAYS WITH SYMBOLS 
-long			mlTicks;
+const byte *	mpActiveSymbol;		// POINTS TO ONE OF THE BYTE ARRAYS WITH SYMBOLS 
+EState			meState;
+unsigned long	mdwNextTicks;		// NEXT TIME TO CHECK FOR STATE CHANGE
+float			mnLastDistance;
+unsigned int	mnDistanceNoChange;
 
 //*********************************************************************************
 //* ONE TIME INIT
@@ -139,7 +155,11 @@ void setup()
   	// INIT GLOBAL VARIABLES
   	
   	mpActiveSymbol = OFF;
-  	mlTicks	 	   = 0;
+  	mnLastDistance = 0.0; 
+  	mnDistanceNoChange = 0U;
+  	meState        = S_IDLE;
+	Serial.println ("--> IDLE");
+  	mdwNextTicks   = millis () + 333UL;
 }
 
 //*********************************************************************************
@@ -147,91 +167,102 @@ void setup()
 //*********************************************************************************
 
 void loop() 
-{
-	// DISPATCH WHAT TO DO
-	
-    mlTicks += 1;
+{    
+	unsigned long	dwTicks;
+	unsigned long	dwDelta;
+	bool			bStateCheck;
 
-	// SHOW SYMBOL
-	
-    if (mlTicks < 25) {
-        DrawSymbol (mpActiveSymbol);
-        return;
-    }
-    
-    // DISPLAY OFF
-    
-    if (mlTicks < 50) {
-        DrawSymbol (OFF);
-        return;
-    } 
-    
-    // BACK TO THE START
-    
-    mlTicks = 0;
-
-    // MEASURE DISTANCE
-
-	long	lRangeDurationMicroSeconds;	// VARIABLE FOR THE DURATION OF SOUND WAVE TRAVEL
-	int		nRangeDistanceCM;			// VARIABLE FOR THE DISTANCE MEASUREMENT
-    
-	// CLEARS THE RANGE_TRIGGER_PIN CONDITION
-
-	digitalWrite (RANGE_TRIGGER_PIN, LOW);
-	delayMicroseconds (2);
-
-	// SETS THE RANGE_TRIGGER_PIN HIGH (ACTIVE) FOR 10 MICROSECONDS
-
-	digitalWrite (RANGE_TRIGGER_PIN, HIGH);
-	delayMicroseconds (10);
-	digitalWrite (RANGE_TRIGGER_PIN, LOW);
-
-	// READS THE RANGE_ECHO_PIN, RETURNS THE SOUND WAVE TRAVEL TIME IN MICROSECONDS
-
-	lRangeDurationMicroSeconds = pulseIn (RANGE_ECHO_PIN, HIGH, 15000);
-
-	// CALCULATING THE DISTANCE
-
-	nRangeDistanceCM = float (lRangeDurationMicroSeconds) * 0.034 / 2.0; // Speed of sound wave divided by 2 (go and back)
-
-	// DISPLAYS THE DISTANCE ON THE SERIAL MONITOR
-
-	Serial.print ("Distance: ");
-	Serial.print (nRangeDistanceCM);
-	Serial.println (" cm");
-
-	// NOTHING DETECTED AT ALL ?
+	// TIME TO CHECK FOR STATE CHANGE ? 
 		
-	if (nRangeDistanceCM == 0) {
-		mpActiveSymbol = OFF;
-		return;
-	}
+    dwTicks = millis ();
+    dwDelta = dwTicks - mdwNextTicks;						// THIS MAY WRAP AROUND
+    bStateCheck = (dwDelta > 0 && dwDelta < 0x80000000);	// "POSITIVE" DELTA ?
+	if (bStateCheck) mdwNextTicks += 333UL;
+		            
+	// DISPATCH CURRENT STATE
+			            
+	switch (meState) {
 	
-	// TOO NEAR ?	
-	
-	if (nRangeDistanceCM < LIMIT_NEAR_CM) {
-		mpActiveSymbol = DOWN_ARROW;
-		return;
-	}
-	
-	// TOO FAR AWAY ?
-	
-	if (nRangeDistanceCM > LIMIT_FAR_CM) {
-		mpActiveSymbol = UP_ARROW;
-		return;
-	}               
-	
-	// JUST RIGHT !
-	
-	mpActiveSymbol = SMILE;
+		// SWITCH TO ACTIVE (SYMBOL) STATE IF SOMETHING IS DETECTED
+		
+		case S_IDLE:
+			if (bStateCheck) {
+				if (ReadDistance ()) {
+					meState = S_SYMBOL;
+					Serial.println ("--> SYMBOL");
+					break;
+				}
+			}
+			break;				
+			
+		// SHOW SYMBOL
+		
+		case S_SYMBOL: {
+			DrawSymbol (mpActiveSymbol);
+			if (bStateCheck) {   
+			    DrawSymbol (OFF);
+				meState = S_RANGING;
+				Serial.println ("--> RANGING");
+			}
+			break;
+		}
+			
+		// MEASURE DISTANCE AND SET NEW SYMBOL AND STATE
+		
+		case S_RANGING: {
+		
+		    // MEASURE DISTANCE
+		
+			float	nRangeDistanceCM;			// VARIABLE FOR THE DISTANCE MEASUREMENT
+		    
+			nRangeDistanceCM = ReadDistance ();
+		
+			// NOTHING DETECTED AT ALL ?
+				
+			if (nRangeDistanceCM == 0.0) {
+				mpActiveSymbol = OFF;
+				meState = S_IDLE;     
+				Serial.println ("--> IDLE");
+				break;
+			}
+			
+			// NEW STATE ?
+			
+			if (bStateCheck) {
+				meState = S_SYMBOL;
+				Serial.println ("--> SYMBOL");
+			}
+			
+			// TOO NEAR ?	
+			
+			if (nRangeDistanceCM < LIMIT_NEAR_CM) {
+				mpActiveSymbol = DOWN_ARROW;
+				break;
+			}
+			
+			// TOO FAR AWAY ?
+			
+			if (nRangeDistanceCM > LIMIT_FAR_CM) {
+				mpActiveSymbol = UP_ARROW;
+				break;
+			}               
+			
+			// JUST RIGHT !
+			
+			mpActiveSymbol = SMILE;
+			break;
+		}
+	}				
 }
 
 //*********************************************************************************
-//* DRAW ONE SYMBOL
+//* DRAW ONE SYMBOL. 
+//* THIS WILL TAKE 8 x 8 x (150 + OVERHEAD) µs, WHICH IS 10328 µs ON MY ARDUINO UNO
+//* OVERHEAD IS THEREFOR AROUND 11 µs 
 //*********************************************************************************
 
 void DrawSymbol (const byte aySymbolBits[])
-{ 
+{
 	// LOOP OVER EACH ROW
 
 	for (byte yRow = 0; yRow < 8; yRow++) {
@@ -248,10 +279,109 @@ void DrawSymbol (const byte aySymbolBits[])
 			
 			// NOW ONE LED AT THE ROW/COL POS IS ILLUMINATED. WAIT A MOMENT, THEN SWITCH THE COLUMN OFF
 			
-			delayMicroseconds (100);       
+			delayMicroseconds (150);       
 			digitalWrite (mayColPins[yCol], HIGH);  // DISABLE COLUMN
 		}                                    
 		
 		digitalWrite (mayRowPins[yRow], LOW);  		// DISABLE ROW
 	}
+}
+
+//*********************************************************************************
+//* READ DISTANCE AVERAGE OVER THE LAST MEASUREMENTS (IN CM)
+//*********************************************************************************
+
+float ReadDistance ()
+{
+	static float	anDistances[DISTANCE_AVERAGE];
+	static int		nIndex = -1;
+	
+	// FIRST TIME INIT
+	
+	if (nIndex < 0) {
+		memset (anDistances, 0, sizeof (anDistances));
+		nIndex = 0;
+	}  
+	
+	// READ NEXT DISTANCE VALUE 
+	
+	anDistances[nIndex] = ReadOneDistance ();
+	if (++nIndex >= DISTANCE_AVERAGE) nIndex = 0;
+	                 
+	// AVERAGE
+
+	float	nSum   = 0.0;
+	int		nCount = 0;
+	float	nRangeDistanceCM;			
+		
+	for (int nI=0; nI<DISTANCE_AVERAGE; nI++) {
+		if (anDistances[nI]) {
+			nSum += anDistances[nI];
+			nCount++;
+		}
+	}
+
+	if (nCount) {
+		nRangeDistanceCM = nSum / float (nCount);
+	} else {
+		nRangeDistanceCM = 0.0;
+	}
+	
+	// SAME AS LAST ONE ??
+	
+	if (abs (nRangeDistanceCM - mnLastDistance) < DISTANCE_IDLE_EPSILON) {
+		// Serial.print ("No change ");
+		// Serial.println (mnDistanceNoChange);
+		if (mnDistanceNoChange > DISTANCE_IDLE_COUNT) {
+			return 0.0;
+		} else {
+			mnDistanceNoChange++;
+   		}
+	} else {
+		if (mnDistanceNoChange) {
+			Serial.print ("Changing again  ");
+			Serial.print (mnDistanceNoChange);
+			Serial.print ("  "); 
+			Serial.print (mnLastDistance); 
+			Serial.print ("  "); 
+			Serial.println (nRangeDistanceCM);
+			mnDistanceNoChange = 0U;
+		}
+		mnLastDistance = nRangeDistanceCM;
+	}
+
+	return nRangeDistanceCM;	
+}
+
+//*********************************************************************************
+//* READ ONE DISTANCE VALUE FROM SENSOR
+//*********************************************************************************
+
+float ReadOneDistance ()
+{
+    // MEASURE DISTANCE
+
+	long	lRangeDurationMicroSeconds;	// VARIABLE FOR THE DURATION OF SOUND WAVE TRAVEL
+	float	nRangeDistanceCM;			// VARIABLE FOR THE DISTANCE MEASUREMENT
+    
+	// CLEARS THE RANGE_TRIGGER_PIN CONDITION
+
+	digitalWrite (RANGE_TRIGGER_PIN, LOW);
+	delayMicroseconds (2);
+
+	// SETS THE RANGE_TRIGGER_PIN HIGH (ACTIVE) FOR 10 MICROSECONDS
+
+	digitalWrite (RANGE_TRIGGER_PIN, HIGH);
+	delayMicroseconds (10);
+	digitalWrite (RANGE_TRIGGER_PIN, LOW);
+
+	// READS THE RANGE_ECHO_PIN, RETURNS THE SOUND WAVE TRAVEL TIME IN MICROSECONDS
+
+	lRangeDurationMicroSeconds = pulseIn (RANGE_ECHO_PIN, HIGH, 15000);
+
+	// CALCULATE THE DISTANCE [WIKIPEDIA: "Die Schallgeschwindigkeit in trockener Luft von 20 °C beträgt 343,2 m/s (1236 km/h)"]
+
+	nRangeDistanceCM = float (lRangeDurationMicroSeconds) * 0.03432 / 2.0; // SPEED OF SOUND WAVE DIVIDED BY 2 (GO AND BACK)
+	
+ 	return nRangeDistanceCM;
 }
