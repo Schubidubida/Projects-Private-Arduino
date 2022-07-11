@@ -16,6 +16,8 @@
 //* Tested on 17 September 2019
 //* ---------------------------------------------------------------- 
 //*********************************************************************************
+                   
+#include <SPI.h>
 
 //*********************************************************************************
 //* PATTERNS BUILT WITH
@@ -24,18 +26,22 @@
 
 // TUNABLES
 
-#define	LIMIT_NEAR_CM	38.0
-#define LIMIT_FAR_CM	52.0               
+#define	LIMIT_NEAR_CM	28.0
+#define LIMIT_FAR_CM	42.0               
 
-#define DISTANCE_AVERAGE	8
+#define DISTANCE_AVERAGE	16
+#define DISTANCE_CHANNELS	2
 
 #define DISTANCE_IDLE_EPSILON	2.0
 #define DISTANCE_IDLE_COUNT		50000U
 
 // PINS FOR RANGING
 
-#define RANGE_TRIGGER_PIN	A5 // ATTACH TO PIN TRIG OF HC-SR04
-#define RANGE_ECHO_PIN		A4 // ATTACH TO PIN ECHO OF HC-SR04
+#define RANGE_TRIGGER_PIN_1	A5		// ATTACH TO PIN TRIG OF HC-SR04
+#define RANGE_ECHO_PIN_1	A4		// ATTACH TO PIN ECHO OF HC-SR04
+
+#define RANGE_TRIGGER_PIN_2	MISO	// ATTACH TO PIN TRIG OF HC-SR04
+#define RANGE_ECHO_PIN_2	MOSI	// ATTACH TO PIN ECHO OF HC-SR04
 
 // PINS FOR LED MATRIX
 
@@ -67,6 +73,8 @@ typedef enum {
 
 const byte	mayRowPins[] = { LED_ROW_1, LED_ROW_2, LED_ROW_3, LED_ROW_4, LED_ROW_5, LED_ROW_6, LED_ROW_7, LED_ROW_8 };
 const byte	mayColPins[] = { LED_COL_1, LED_COL_2, LED_COL_3, LED_COL_4, LED_COL_5, LED_COL_6, LED_COL_7, LED_COL_8 };
+const byte	mayRangeTriggerPin[DISTANCE_CHANNELS] = { RANGE_TRIGGER_PIN_1, RANGE_TRIGGER_PIN_2 };
+const byte	mayRangeEchoPin[DISTANCE_CHANNELS] = { RANGE_ECHO_PIN_1, RANGE_ECHO_PIN_2 };
 
 // LOTS OF SYMBOLS 
 
@@ -148,9 +156,13 @@ void setup()
 	pinMode (A3, OUTPUT);
 
 	// SET RANGING PINS
-		
-  	pinMode (RANGE_TRIGGER_PIN, OUTPUT);	// TRIGGER IS AN OUTPUT
-  	pinMode (RANGE_ECHO_PIN, INPUT);		// ECHO IS AN INPUT
+		                    
+	SPI.end ();		                    
+  	pinMode (RANGE_TRIGGER_PIN_1, OUTPUT);	// TRIGGER IS AN OUTPUT
+  	pinMode (RANGE_ECHO_PIN_1, INPUT);		// ECHO IS AN INPUT
+  	pinMode (RANGE_TRIGGER_PIN_2, OUTPUT);	// TRIGGER IS AN OUTPUT
+  	pinMode (RANGE_ECHO_PIN_2, INPUT);		// ECHO IS AN INPUT
+  	
   	
   	// INIT GLOBAL VARIABLES
   	
@@ -293,8 +305,10 @@ void DrawSymbol (const byte aySymbolBits[])
 
 float ReadDistance ()
 {
-	static float	anDistances[DISTANCE_AVERAGE];
+	static float	anDistances[DISTANCE_CHANNELS][DISTANCE_AVERAGE];
 	static int		nIndex = -1;
+	
+	int				nChannel;
 	
 	// FIRST TIME INIT
 	
@@ -304,34 +318,49 @@ float ReadDistance ()
 	}  
 	
 	// READ NEXT DISTANCE VALUE 
-	
-	anDistances[nIndex] = ReadOneDistance ();
-	if (++nIndex >= DISTANCE_AVERAGE) nIndex = 0;
+	                           
+	nChannel = nIndex & 0x0001; 	                           
+	anDistances[nChannel][nIndex >> 1] = ReadOneDistance (nChannel);
+	if (++nIndex >= DISTANCE_AVERAGE * DISTANCE_CHANNELS) nIndex = 0;
 	                 
-	// AVERAGE
+	// AVERAGE BOTH CHANNELS
 
-	float	nSum   = 0.0;
-	int		nCount = 0;
+	float	anRangeDistanceCM[DISTANCE_CHANNELS];			
 	float	nRangeDistanceCM;			
 		
-	for (int nI=0; nI<DISTANCE_AVERAGE; nI++) {
-		if (anDistances[nI]) {
-			nSum += anDistances[nI];
-			nCount++;
+	for (int nC=0; nC<DISTANCE_CHANNELS; nC++) {		
+		float	nSum   = 0.0;
+		int		nCount = 0;
+		
+		for (int nI=0; nI<DISTANCE_AVERAGE; nI++) {
+			if (anDistances[nC][nI]) {
+				nSum += anDistances[nC][nI];
+				nCount++;
+			}
+		}	
+
+		if (nCount) {
+			anRangeDistanceCM[nC] = nSum / float (nCount);
+		} else {
+			anRangeDistanceCM[nC] = 0.0;
 		}
 	}
+	
+	// USE NEARER (LOWER, BUT NOT ZERO) VALUE
 
-	if (nCount) {
-		nRangeDistanceCM = nSum / float (nCount);
+	if (anRangeDistanceCM[0]) {
+		if (anRangeDistanceCM[1]) {
+			nRangeDistanceCM = anRangeDistanceCM[0] < anRangeDistanceCM[1] ? anRangeDistanceCM[0] : anRangeDistanceCM[1];
+		} else {
+			nRangeDistanceCM = anRangeDistanceCM[0];
+		}
 	} else {
-		nRangeDistanceCM = 0.0;
+		nRangeDistanceCM = anRangeDistanceCM[1];
 	}
 	
 	// SAME AS LAST ONE ??
 	
 	if (abs (nRangeDistanceCM - mnLastDistance) < DISTANCE_IDLE_EPSILON) {
-		// Serial.print ("No change ");
-		// Serial.println (mnDistanceNoChange);
 		if (mnDistanceNoChange > DISTANCE_IDLE_COUNT) {
 			return 0.0;
 		} else {
@@ -357,27 +386,28 @@ float ReadDistance ()
 //* READ ONE DISTANCE VALUE FROM SENSOR
 //*********************************************************************************
 
-float ReadOneDistance ()
+float ReadOneDistance (int nChannel)
 {
     // MEASURE DISTANCE
 
-	long	lRangeDurationMicroSeconds;	// VARIABLE FOR THE DURATION OF SOUND WAVE TRAVEL
-	float	nRangeDistanceCM;			// VARIABLE FOR THE DISTANCE MEASUREMENT
+	long	lRangeDurationMicroSeconds;		// VARIABLE FOR THE DURATION OF SOUND WAVE TRAVEL
+	float	nRangeDistanceCM;				// VARIABLE FOR THE DISTANCE MEASUREMENT
     
 	// CLEARS THE RANGE_TRIGGER_PIN CONDITION
 
-	digitalWrite (RANGE_TRIGGER_PIN, LOW);
-	delayMicroseconds (2);
+	digitalWrite (mayRangeTriggerPin[nChannel], LOW);
+	while (digitalRead (mayRangeEchoPin[nChannel]) == HIGH);
+	delayMicroseconds (5);
 
 	// SETS THE RANGE_TRIGGER_PIN HIGH (ACTIVE) FOR 10 MICROSECONDS
 
-	digitalWrite (RANGE_TRIGGER_PIN, HIGH);
-	delayMicroseconds (10);
-	digitalWrite (RANGE_TRIGGER_PIN, LOW);
+	digitalWrite (mayRangeTriggerPin[nChannel], HIGH);
+	delayMicroseconds (12);
+	digitalWrite (mayRangeTriggerPin[nChannel], LOW);
 
 	// READS THE RANGE_ECHO_PIN, RETURNS THE SOUND WAVE TRAVEL TIME IN MICROSECONDS
 
-	lRangeDurationMicroSeconds = pulseIn (RANGE_ECHO_PIN, HIGH, 15000);
+	lRangeDurationMicroSeconds = pulseIn (mayRangeEchoPin[nChannel], HIGH, 15000);
 
 	// CALCULATE THE DISTANCE [WIKIPEDIA: "Die Schallgeschwindigkeit in trockener Luft von 20 °C beträgt 343,2 m/s (1236 km/h)"]
 
